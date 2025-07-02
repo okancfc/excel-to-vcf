@@ -1,8 +1,11 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, forwardRef } from "react"; // forwardRef import edildi
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import DatePicker, { registerLocale } from "react-datepicker";
+import { tr } from "date-fns/locale/tr";
+import "react-datepicker/dist/react-datepicker.css";
 import {
   Upload,
   FileSpreadsheet,
@@ -10,7 +13,27 @@ import {
   CheckCircle,
   AlertCircle,
   Sparkles,
+  Calendar,
 } from "lucide-react";
+
+registerLocale("tr", tr);
+
+// --- TASARIM GÜNCELLEMESİ: Özel Tarih Giriş Bileşeni ---
+const CustomDateInput = forwardRef<
+  HTMLButtonElement,
+  { value?: string; onClick?: () => void }
+>(({ value, onClick }, ref) => (
+  <button
+    className="w-full text-left p-4 bg-white/60 border-2 border-transparent rounded-xl flex items-center justify-between hover:border-blue-300 transition-all duration-300 shadow-sm"
+    onClick={onClick}
+    ref={ref}
+  >
+    <span className="text-gray-700 font-medium">{value}</span>
+    <Calendar className="w-5 h-5 text-blue-600" />
+  </button>
+));
+CustomDateInput.displayName = "CustomDateInput";
+// ----------------------------------------------------
 
 export default function Home() {
   const [status, setStatus] = useState("");
@@ -18,10 +41,14 @@ export default function Home() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (file: File) => {
-    if (!file) return;
+    if (!file || !selectedDate) {
+      setStatus("Lütfen önce bir tarih seçin.");
+      return;
+    }
 
     setSuccess(false);
     setIsProcessing(true);
@@ -29,14 +56,10 @@ export default function Home() {
     setStatus("📄 Excel dosyası okunuyor...");
 
     try {
-      // --- YENİ EKLENEN KOD BAŞLANGICI ---
-      // İşlemin yapıldığı günün tarihini al ve formatla (ggAAYy)
-      const today = new Date();
-      const day = today.getDate().toString().padStart(2, "0");
-      const month = (today.getMonth() + 1).toString().padStart(2, "0"); // getMonth() 0'dan başlar
-      const year = today.getFullYear().toString().slice(-2);
+      const day = selectedDate.getDate().toString().padStart(2, "0");
+      const month = (selectedDate.getMonth() + 1).toString().padStart(2, "0");
+      const year = selectedDate.getFullYear().toString().slice(-2);
       const datePrefix = `${day}${month}${year}`;
-      // --- YENİ EKLENEN KOD SONU ---
 
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
@@ -66,8 +89,7 @@ export default function Home() {
           3,
           6
         )} ${phone.slice(6, 8)} ${phone.slice(8)}`;
-        
-        // --- DEĞİŞTİRİLEN SATIRLAR ---
+
         const fullName = `${datePrefix} ${ad} ${soyad}`;
         const fileName = `${datePrefix}_${ad}_${soyad}.vcf`;
 
@@ -90,8 +112,7 @@ END:VCARD`;
       setStatus("📦 ZIP dosyası hazırlanıyor...");
 
       const content = await zip.generateAsync({ type: "blob" });
-      // --- DEĞİŞTİRİLEN SATIR ---
-      saveAs(content, `rehber_${datePrefix}_tum_formatli.zip`);
+      saveAs(content, `${datePrefix} rehber.zip`);
 
       setStatus(`✅ ${count} kişi başarıyla işlendi ve indirildi!`);
       setSuccess(true);
@@ -108,14 +129,17 @@ END:VCARD`;
     if (file) handleFileUpload(file);
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith(".xlsx")) {
-      handleFileUpload(file);
-    }
-  }, []);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith(".xlsx")) {
+        handleFileUpload(file);
+      }
+    },
+    [selectedDate]
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -155,7 +179,27 @@ END:VCARD`;
 
         {/* Main Card */}
         <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 transition-all duration-300 hover:shadow-3xl">
+          {/* --- TASARIM GÜNCELLEMESİ: Tarih Seçme Alanı --- */}
+          <div className="p-4 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 rounded-2xl border border-blue-100/80 mb-6">
+            <label className="flex items-center text-base font-semibold text-blue-800 mb-2">
+              1. İşlem Tarihini Belirleyin
+            </label>
+            <DatePicker
+              locale="tr"
+              selected={selectedDate}
+              onChange={(date) => setSelectedDate(date)}
+              dateFormat="d MMMM yyyy"
+              customInput={<CustomDateInput />}
+              popperClassName="z-30" // Takvimin diğer elemanların üzerinde kalmasını sağlar
+            />
+          </div>
+          {/* ------------------------------------------- */}
+
           {/* Drag & Drop Area */}
+          <label className="flex items-center text-lg font-semibold text-gray-800 mb-2">
+            <Upload className="w-5 h-5 mr-2 text-blue-500" />
+            2. Dosya Yükleyin
+          </label>
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -168,7 +212,11 @@ END:VCARD`;
                   ? "border-blue-500 bg-blue-50/50 scale-[1.02]"
                   : "border-gray-300 hover:border-blue-400 hover:bg-gray-50/50"
               }
-              ${isProcessing ? "pointer-events-none opacity-75" : ""}
+              ${
+                isProcessing || !selectedDate
+                  ? "pointer-events-none opacity-50"
+                  : ""
+              }
             `}
           >
             <input
@@ -177,7 +225,7 @@ END:VCARD`;
               accept=".xlsx"
               onChange={handleInputChange}
               className="hidden"
-              disabled={isProcessing}
+              disabled={isProcessing || !selectedDate}
             />
 
             <div className="flex flex-col items-center space-y-4">
@@ -273,26 +321,6 @@ END:VCARD`;
               </div>
             </div>
           )}
-
-          {/* Features */}
-          <div className="mt-8 grid grid-cols-2 gap-4">
-            <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                <FileSpreadsheet className="w-4 h-4 text-blue-600" />
-              </div>
-              <p className="text-xs font-medium text-blue-800">Excel Desteği</p>
-              <p className="text-xs text-blue-600 mt-1">XLSX formatı</p>
-            </div>
-            <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-100">
-              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                <Sparkles className="w-4 h-4 text-purple-600" />
-              </div>
-              <p className="text-xs font-medium text-purple-800">
-                Otomatik Format
-              </p>
-              <p className="text-xs text-purple-600 mt-1">VCF çıktısı</p>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
@@ -305,6 +333,61 @@ END:VCARD`;
           </p>
         </div>
       </div>
+
+      {/* --- TASARIM GÜNCELLEMESİ: Özel Takvim Stilleri --- */}
+      <style jsx global>{`
+        .react-datepicker-popper {
+          padding-top: 8px !important;
+        }
+        .react-datepicker {
+          border: 1px solid rgba(0, 0, 0, 0.1) !important;
+          border-radius: 1rem !important;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+            0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+          background-color: rgba(255, 255, 255, 0.8) !important;
+          backdrop-filter: blur(10px);
+          font-family: inherit !important;
+        }
+        .react-datepicker__header {
+          background: linear-gradient(to right, #60a5fa, #a78bfa) !important;
+          border-radius: 1rem 1rem 0 0 !important;
+          border-bottom: none !important;
+          padding-top: 12px !important;
+        }
+        .react-datepicker__current-month,
+        .react-datepicker__day-name {
+          color: white !important;
+          font-weight: 500 !important;
+        }
+        .react-datepicker__navigation-icon::before {
+          border-color: white !important;
+          border-width: 2px 2px 0 0 !important;
+        }
+        .react-datepicker__month-container {
+          padding: 8px !important;
+        }
+        .react-datepicker__day {
+          border-radius: 9999px !important;
+          transition: all 0.2s ease-in-out !important;
+        }
+        .react-datepicker__day:hover {
+          background-color: #dbeafe !important;
+        }
+        .react-datepicker__day--selected,
+        .react-datepicker__day--keyboard-selected {
+          background: linear-gradient(to right, #3b82f6, #8b5cf6) !important;
+          color: white !important;
+          font-weight: bold !important;
+        }
+        .react-datepicker__day--today {
+          font-weight: bold !important;
+          background-color: rgba(96, 165, 250, 0.2) !important;
+        }
+        .react-datepicker__day--outside-month {
+          opacity: 0.5;
+        }
+      `}</style>
+      {/* ---------------------------------------------------- */}
     </main>
   );
 }
