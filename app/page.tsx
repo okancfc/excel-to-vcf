@@ -3,7 +3,14 @@ import { useState, useRef, useCallback } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
-import { Upload, FileSpreadsheet, Download, CheckCircle, AlertCircle, Sparkles } from "lucide-react";
+import {
+  Upload,
+  FileSpreadsheet,
+  Download,
+  CheckCircle,
+  AlertCircle,
+  Sparkles,
+} from "lucide-react";
 
 export default function Home() {
   const [status, setStatus] = useState("");
@@ -22,6 +29,15 @@ export default function Home() {
     setStatus("📄 Excel dosyası okunuyor...");
 
     try {
+      // --- YENİ EKLENEN KOD BAŞLANGICI ---
+      // İşlemin yapıldığı günün tarihini al ve formatla (ggAAYy)
+      const today = new Date();
+      const day = today.getDate().toString().padStart(2, "0");
+      const month = (today.getMonth() + 1).toString().padStart(2, "0"); // getMonth() 0'dan başlar
+      const year = today.getFullYear().toString().slice(-2);
+      const datePrefix = `${day}${month}${year}`;
+      // --- YENİ EKLENEN KOD SONU ---
+
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -39,15 +55,21 @@ export default function Home() {
         let phone = (row["Telefon"] || "").toString().replace(/\D/g, "");
 
         if (phone.startsWith("0")) phone = phone.slice(1);
-        if (phone.startsWith("90") && phone.length === 12) phone = phone.slice(2);
+        if (phone.startsWith("90") && phone.length === 12)
+          phone = phone.slice(2);
         if (phone.length > 10) phone = phone.slice(-10);
 
         if (phone.length !== 10 || seen.has(phone)) return;
 
         seen.add(phone);
-        const formattedPhone = `+90 ${phone.slice(0, 3)} ${phone.slice(3, 6)} ${phone.slice(6, 8)} ${phone.slice(8)}`;
-        const fullName = `040625 ${ad} ${soyad}`;
-        const fileName = `040625_${ad}_${soyad}.vcf`;
+        const formattedPhone = `+90 ${phone.slice(0, 3)} ${phone.slice(
+          3,
+          6
+        )} ${phone.slice(6, 8)} ${phone.slice(8)}`;
+        
+        // --- DEĞİŞTİRİLEN SATIRLAR ---
+        const fullName = `${datePrefix} ${ad} ${soyad}`;
+        const fileName = `${datePrefix}_${ad}_${soyad}.vcf`;
 
         const vcf = `BEGIN:VCARD
 VERSION:3.0
@@ -58,7 +80,7 @@ END:VCARD`;
 
         zip.file(fileName, vcf);
         count++;
-        
+
         if (index % 10 === 0) {
           setProcessedCount(count);
         }
@@ -68,7 +90,8 @@ END:VCARD`;
       setStatus("📦 ZIP dosyası hazırlanıyor...");
 
       const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, "rehber_040625_tum_formatli.zip");
+      // --- DEĞİŞTİRİLEN SATIR ---
+      saveAs(content, `rehber_${datePrefix}_tum_formatli.zip`);
 
       setStatus(`✅ ${count} kişi başarıyla işlendi ve indirildi!`);
       setSuccess(true);
@@ -89,7 +112,7 @@ END:VCARD`;
     e.preventDefault();
     setIsDragOver(false);
     const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.xlsx')) {
+    if (file && file.name.endsWith(".xlsx")) {
       handleFileUpload(file);
     }
   }, []);
@@ -125,7 +148,9 @@ END:VCARD`;
           <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Excel → VCF Dönüştürücü
           </h1>
-          <p className="text-gray-600">Excel dosyanızı VCF formatına kolayca dönüştürün</p>
+          <p className="text-gray-600">
+            Excel dosyanızı VCF formatına kolayca dönüştürün
+          </p>
         </div>
 
         {/* Main Card */}
@@ -138,11 +163,12 @@ END:VCARD`;
             onClick={openFileDialog}
             className={`
               relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300
-              ${isDragOver 
-                ? 'border-blue-500 bg-blue-50/50 scale-[1.02]' 
-                : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50/50'
+              ${
+                isDragOver
+                  ? "border-blue-500 bg-blue-50/50 scale-[1.02]"
+                  : "border-gray-300 hover:border-blue-400 hover:bg-gray-50/50"
               }
-              ${isProcessing ? 'pointer-events-none opacity-75' : ''}
+              ${isProcessing ? "pointer-events-none opacity-75" : ""}
             `}
           >
             <input
@@ -160,26 +186,32 @@ END:VCARD`;
                   <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 </div>
               ) : (
-                <div className={`
+                <div
+                  className={`
                   w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300
-                  ${isDragOver 
-                    ? 'bg-gradient-to-br from-blue-500 to-purple-600 scale-110' 
-                    : 'bg-gradient-to-br from-gray-100 to-gray-200 hover:from-blue-100 hover:to-purple-100'
+                  ${
+                    isDragOver
+                      ? "bg-gradient-to-br from-blue-500 to-purple-600 scale-110"
+                      : "bg-gradient-to-br from-gray-100 to-gray-200 hover:from-blue-100 hover:to-purple-100"
                   }
-                `}>
-                  <Upload className={`w-8 h-8 ${isDragOver ? 'text-white' : 'text-gray-600'}`} />
+                `}
+                >
+                  <Upload
+                    className={`w-8 h-8 ${
+                      isDragOver ? "text-white" : "text-gray-600"
+                    }`}
+                  />
                 </div>
               )}
 
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-1">
-                  {isProcessing ? 'İşleniyor...' : 'Excel Dosyanızı Seçin'}
+                  {isProcessing ? "İşleniyor..." : "Excel Dosyanızı Seçin"}
                 </h3>
                 <p className="text-sm text-gray-600">
-                  {isProcessing 
-                    ? `${processedCount} kayıt işlendi` 
-                    : 'Dosyayı sürükleyip bırakın veya tıklayarak seçin'
-                  }
+                  {isProcessing
+                    ? `${processedCount} kayıt işlendi`
+                    : "Dosyayı sürükleyip bırakın veya tıklayarak seçin"}
                 </p>
               </div>
 
@@ -200,13 +232,16 @@ END:VCARD`;
 
           {/* Status */}
           {status && (
-            <div className={`
+            <div
+              className={`
               mt-6 p-4 rounded-xl border transition-all duration-300
-              ${success 
-                ? 'bg-green-50 border-green-200 text-green-800' 
-                : 'bg-blue-50 border-blue-200 text-blue-800'
+              ${
+                success
+                  ? "bg-green-50 border-green-200 text-green-800"
+                  : "bg-blue-50 border-blue-200 text-blue-800"
               }
-            `}>
+            `}
+            >
               <div className="flex items-center space-x-3">
                 {success ? (
                   <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
@@ -227,8 +262,13 @@ END:VCARD`;
                   <Download className="w-5 h-5 text-green-600" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-green-800">İndirme Tamamlandı!</h4>
-                  <p className="text-sm text-green-600">ZIP dosyası otomatik olarak indirildi. Başka bir dosya yükleyebilirsiniz.</p>
+                  <h4 className="font-semibold text-green-800">
+                    İndirme Tamamlandı!
+                  </h4>
+                  <p className="text-sm text-green-600">
+                    ZIP dosyası otomatik olarak indirildi. Başka bir dosya
+                    yükleyebilirsiniz.
+                  </p>
                 </div>
               </div>
             </div>
@@ -247,7 +287,9 @@ END:VCARD`;
               <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-2">
                 <Sparkles className="w-4 h-4 text-purple-600" />
               </div>
-              <p className="text-xs font-medium text-purple-800">Otomatik Format</p>
+              <p className="text-xs font-medium text-purple-800">
+                Otomatik Format
+              </p>
               <p className="text-xs text-purple-600 mt-1">VCF çıktısı</p>
             </div>
           </div>
@@ -256,7 +298,10 @@ END:VCARD`;
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500">
-            <span className="font-medium bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Akkan Caner</span> için geliştirildi
+            <span className="font-medium bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Akkan Caner
+            </span>{" "}
+            için geliştirildi
           </p>
         </div>
       </div>
